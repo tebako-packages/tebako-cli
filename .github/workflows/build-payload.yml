@@ -47,6 +47,11 @@ jobs:
     container: ${{ matrix.container }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Install the leg's tools (musl container)
+        # The alpine container is musl+BusyBox — no bash, no curl, no git.
+        # The repackage tools need them.
+        if: matrix.container != null
+        run: apk add --no-cache bash curl git ruby
       - name: Set up MSys2 (ucrt64 toolchain)
         # The repackage needs no compiler — the msys2 leg provides the
         # ruby the recipe/stage tools run on + the shell tools.
