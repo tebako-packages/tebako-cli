@@ -58,7 +58,7 @@ jobs:
             curl
             mingw-w64-ucrt-x86_64-ruby
       - name: Repackage (${{ matrix.platform }})
-        if: !startsWith(matrix.platform, 'x86_64-windows')
+        if: "!startsWith(matrix.platform, 'x86_64-windows')"
         run: tools/build Tebakofile "${{ matrix.platform }}"
       - name: Repackage (${{ matrix.platform }}, ucrt64)
         if: startsWith(matrix.platform, 'x86_64-windows')
@@ -67,14 +67,14 @@ jobs:
       - name: Boot-smoke
         # Hard rule: the packaged CLI's --version runs from the image
         # before any release publishes.
-        if: !startsWith(matrix.platform, 'x86_64-windows')
+        if: "!startsWith(matrix.platform, 'x86_64-windows')"
         run: tools/boot_smoke "out/${{ matrix.platform }}"
       - name: Boot-smoke (ucrt64)
         if: startsWith(matrix.platform, 'x86_64-windows')
         shell: msys2 {0}
         run: tools/boot_smoke "out/${{ matrix.platform }}"
       - name: Stage artifact
-        if: !startsWith(matrix.platform, 'x86_64-windows')
+        if: "!startsWith(matrix.platform, 'x86_64-windows')"
         run: tools/stage "out/${{ matrix.platform }}" "${{ matrix.platform }}"
       - name: Stage artifact (ucrt64)
         if: startsWith(matrix.platform, 'x86_64-windows')
