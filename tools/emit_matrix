@@ -18,8 +18,8 @@ require 'json'
 RUNNERS = {
   'x86_64-linux-gnu'     => 'ubuntu-24.04',
   'aarch64-linux-gnu'    => 'ubuntu-24.04-arm',
-  'x86_64-linux-musl'    => 'ubuntu-24.04',      # the musl tfs CLI is static — it images on the gnu host
-  'aarch64-linux-musl'   => 'ubuntu-24.04-arm',
+  'x86_64-linux-musl'    => 'ubuntu-24.04',      # the musl tfs CLI links the musl loader — it images in the alpine container on the gnu host
+  'aarch64-linux-musl'   => 'ubuntu-24.04',      # CROSS leg: ubuntu-24.04-arm's Alpine container runs no JS actions; the x64 host images the arm64 payload (the payload bytes are data)
   'aarch64-macos'        => 'macos-15',
   'x86_64-macos'         => 'macos-15',
   'x86_64-windows-ucrt'  => 'windows-latest',
@@ -38,6 +38,11 @@ platforms = recipe['platforms'] or abort "emit_matrix: platforms missing"
   # The musl legs run in the alpine container: the musl tfs CLI is not
   # static (it links the musl loader) and cannot execute on the gnu host.
   leg[:container] = 'alpine:3.21' if triplet.include?('-musl')
+  # A cross leg's packaged binary cannot execute on the host (the
+  # aarch64-musl CLI on an x64 host) — the boot smoke's extract-and-run
+  # is skipped there; the stage tool's read-back validation is the leg's
+  # proof (the manifest + the entrypoint present).
+  leg[:cross] = true if triplet == 'aarch64-linux-musl'
   leg
 end
 

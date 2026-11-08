@@ -75,8 +75,10 @@ jobs:
         run: tools/build Tebakofile "${{ matrix.platform }}"
       - name: Boot-smoke
         # Hard rule: the packaged CLI's --version runs from the image
-        # before any release publishes.
-        if: "!startsWith(matrix.platform, 'x86_64-windows')"
+        # before any release publishes. Skipped on a cross leg (the
+        # aarch64-musl binary cannot execute on the x64 host) — the stage
+        # tool's read-back validation is that leg's proof.
+        if: "!startsWith(matrix.platform, 'x86_64-windows') && !matrix.cross"
         run: tools/boot_smoke "out/${{ matrix.platform }}"
       - name: Boot-smoke (ucrt64)
         if: startsWith(matrix.platform, 'x86_64-windows')
