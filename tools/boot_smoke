@@ -1,0 +1,84 @@
+#!/usr/bin/env bash
+# tools/boot_smoke — run the packaged tool from a built payload image.
+#
+#   tools/boot_smoke OUT_DIR [RECIPE]
+#
+# OUT_DIR is one build leg's out/<platform> directory (must contain
+# payload.tfs and the leg's verified tfs CLI in tools/).
+#
+# Mode: extract-and-run. The smoke extracts the image with the leg's
+# verified tfs CLI (the same binary on every platform — info/tree/extract
+# subcommands) and runs the binary natively. That is exactly the
+# dynamic-tier binary the payload will interpose on; the exec shim itself
+# is out of smoke scope. The tfs CLI restores image permission bits on
+# extract (windows executability rides the .exe extension, not mode
+# bits), so no mode repair is needed after extraction.
+set -euo pipefail
+
+HERE="$(cd "$(dirname "$0")" && pwd)"
+. "$HERE/lib/common.sh"
+
+OUT="${1:?usage: tools/boot_smoke OUT_DIR [RECIPE]}"
+RECIPE="${2:-Tebakofile}"
+IMAGE="$OUT/payload.tfs"
+PLATFORM="${OUT%/}"; PLATFORM="${PLATFORM##*/}"   # out/<platform>
+READER="$(image_reader "$PLATFORM" "$OUT")"
+EXE_SUFFIX="$(exe_suffix_for "$PLATFORM")"
+
+[ -f "$IMAGE" ]  || { echo "boot_smoke: no payload image at $IMAGE" >&2; exit 1; }
+[ -x "$READER" ] || { echo "boot_smoke: no verified image reader at $READER" >&2; exit 1; }
+
+EXE_NAME="$("$HERE/recipe_query" "$RECIPE" provides.executables.0.name)"
+EXE_PATH="$("$HERE/recipe_query" "$RECIPE" provides.executables.0.path)"
+EXE_VER="$("$HERE/recipe_query" "$RECIPE" provides.executables.0.version)"
+
+echo "boot_smoke: mode=extract-and-run reader=$(basename "$READER") image=$IMAGE exe=$EXE_PATH$EXE_SUFFIX@$EXE_VER"
+
+echo "--- image info ---"
+"$READER" info "$IMAGE"
+echo "--- image tree ---"
+"$READER" tree "$IMAGE"
+
+# The extraction dir stays INSIDE the leg's out/ tree: a relative path
+# works for the msys-native reader AND for tfs.exe (a native windows
+# binary that cannot resolve msys-virtual absolute paths like /tmp/...).
+TMP="$(mktemp -d "$OUT/smoke.XXXXXX")"
+trap 'rm -rf "$TMP"' EXIT
+"$READER" extract -d "$TMP" "$IMAGE" >/dev/null
+
+# the recipe's exclude: axis (spec 13 §9) — an excluded path never rides
+# the image; assert absence on the extracted tree, per glob
+EXCLUDES=()
+while IFS= read -r g; do EXCLUDES+=("$g"); done < <(exclude_globs "$RECIPE")
+if [ "${#EXCLUDES[@]}" -gt 0 ]; then
+  ruby "$HERE/lib/exclude_prune.rb" --check "$TMP" "${EXCLUDES[@]}" || {
+    echo "boot_smoke: FAIL — excluded path(s) present in the image" >&2; exit 1; }
+  echo "boot_smoke: exclude axis: ${#EXCLUDES[@]} pattern(s), none present in the image"
+fi
+
+# The tfs CLI restores image permission bits on extract; the existence
+# checks below are the guard (a mode-restoring reader needs no repair
+# step).
+N_EXES=$("$HERE/recipe_query" "$RECIPE" provides.executables | ruby -rjson -e 'puts JSON.parse(STDIN.read).length')
+for i in $(seq 0 $((N_EXES - 1))); do
+  p="$("$HERE/recipe_query" "$RECIPE" "provides.executables.$i.path")$EXE_SUFFIX"
+  [ -f "$TMP$p" ] || { echo "boot_smoke: FAIL — $p missing from image" >&2; exit 1; }
+done
+
+BIN="$TMP$EXE_PATH$EXE_SUFFIX"
+[ -x "$BIN" ] || { echo "boot_smoke: FAIL — $EXE_PATH$EXE_SUFFIX not executable in image" >&2; exit 1; }
+
+echo "--- run: $EXE_PATH$EXE_SUFFIX --version (from extracted image) ---"
+VER_OUT="$("$BIN" --version 2>&1 | head -1)"
+echo "$VER_OUT"
+case "$VER_OUT" in
+  *"$EXE_VER"*) : ;;
+  *) echo "boot_smoke: FAIL — version output does not contain '$EXE_VER'" >&2; exit 1 ;;
+esac
+
+echo "--- run: $EXE_PATH$EXE_SUFFIX (functional) ---"
+RUN_OUT="$("$BIN" 2>&1)"
+echo "$RUN_OUT"
+[ -n "$RUN_OUT" ] || { echo "boot_smoke: FAIL — empty output" >&2; exit 1; }
+
+echo "boot_smoke: PASS ($EXE_NAME $EXE_VER)"

@@ -1,0 +1,40 @@
+#!/usr/bin/env ruby
+# emit_matrix — emit the GitHub Actions build matrix from a feedstock recipe.
+# Usage: ruby tools/emit_matrix Tebakofile
+# Prints one JSON object: {"include":[{version, platform, runner}, ...]}
+# One leg per platform in the recipe (the repackage carries ONE upstream
+# version — the recipe's tebako release line). Unknown platforms are a hard
+# error (docs/conventions.md).
+#
+# The runner map: the musl + windows-arm64 legs ride the static tfs CLI
+# (musl static runs on the gnu host; the windows-arm64 leg stages on
+# windows-11-arm). macos is on the macos-15 generation (macos-14 retired).
+# No triplet, runner, or container is named in the workflow — this map is
+# the SSOT.
+
+require 'yaml'
+require 'json'
+
+RUNNERS = {
+  'x86_64-linux-gnu'     => 'ubuntu-24.04',
+  'aarch64-linux-gnu'    => 'ubuntu-24.04-arm',
+  'x86_64-linux-musl'    => 'ubuntu-24.04',      # the musl tfs CLI is static — it images on the gnu host
+  'aarch64-linux-musl'   => 'ubuntu-24.04-arm',
+  'aarch64-macos'        => 'macos-15',
+  'x86_64-macos'         => 'macos-15',
+  'x86_64-windows-ucrt'  => 'windows-latest',
+  'aarch64-windows-ucrt' => 'windows-11-arm',
+}.freeze
+
+abort "usage: ruby tools/emit_matrix RECIPE" unless ARGV[0]
+recipe = YAML.load_file(ARGV[0])
+
+version = recipe.dig('upstream', 'version') or abort "emit_matrix: upstream.version missing"
+platforms = recipe['platforms'] or abort "emit_matrix: platforms missing"
+
+legs = platforms.map do |triplet|
+  runner = RUNNERS[triplet] or abort "emit_matrix: no runner mapped for platform '#{triplet}'"
+  { version: version, platform: triplet, runner: runner }
+end
+
+puts JSON.generate(include: legs)

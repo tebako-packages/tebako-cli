@@ -1,0 +1,70 @@
+#!/usr/bin/env bash
+# tools/build — build one platform leg of the tebako-cli feedstock.
+#
+#   tools/build [RECIPE] PLATFORM
+#
+# This feedstock compiles nothing: it re-packages the tamatebako/tebako
+# release's CLI binary (the host's own format) into a toolkit payload.
+# Per leg: fetch the platform's `tebako-<ver>-<infix>` binary from the
+# pinned release (sha256-verified against the release's own SHA256SUMS) →
+# stage `bin/tebako[.exe]` → pack the staging tree with the leg's pinned
+# tfs CLI → verify the image reads back. The manifest rides into the
+# image at tools/stage (the naming + embed + repack step, shared shape).
+#
+# Outputs (all under out/<platform>/):
+#   payload.tfs   the packed staging tree (pre-manifest — stage embeds it)
+#   root/         the staging tree itself (kept for inspection)
+#   tools/        the leg's verified tfs CLI + the fetched CLI + SHA256SUMS
+set -euo pipefail
+
+HERE="$(cd "$(dirname "$0")" && pwd)"
+. "$HERE/lib/common.sh"
+
+RECIPE="Tebakofile"
+case "${1:-}" in
+  *.yml|*.yaml|Tebakofile) RECIPE="$1"; shift ;;
+esac
+PLATFORM="${1:?usage: tools/build [RECIPE] PLATFORM}"
+
+NAME="$("$HERE/recipe_query" "$RECIPE" name)"
+UP_REPO="$("$HERE/recipe_query" "$RECIPE" upstream.repo)"
+UP_REL="$("$HERE/recipe_query" "$RECIPE" upstream.release)"
+UP_VER="$("$HERE/recipe_query" "$RECIPE" upstream.version)"
+SYSTEM="$("$HERE/recipe_query" "$RECIPE" build.system)"
+
+# --- hard checks: no silent fallbacks --------------------------------
+[ "$SYSTEM" = "repackage" ] || {
+  echo "build: build.system '$SYSTEM' — this feedstock is repackage-only" >&2; exit 1; }
+"$HERE/recipe_query" "$RECIPE" platforms | grep -q "\"$PLATFORM\"" || {
+  echo "build: platform '$PLATFORM' not listed in recipe platforms" >&2; exit 1; }
+
+OUT="out/$PLATFORM"
+ROOT="$OUT/root"
+mkdir -p "$OUT/tools"
+rm -rf "$ROOT"
+mkdir -p "$ROOT/bin"
+
+# --- the leg's verified tfs CLI (the imager) --------------------------
+TFS_PIN="$("$HERE/recipe_query" "$RECIPE" tools.sha256."$(asset_infix "$PLATFORM")")"
+download_tfs "$OUT/tools" "tamatebako/tebako" "$UP_REL" "$PLATFORM" "$TFS_PIN"
+
+# --- fetch + verify the CLI binary against the release's own SHA256SUMS --
+EXE="$(exe_suffix_for "$PLATFORM")"
+INFIX="$(asset_infix "$PLATFORM")"
+CLI_ASSET="tebako-${UP_VER}-${INFIX}${EXE}"
+SUMS="$OUT/tools/SHA256SUMS"
+[ -f "$SUMS" ] || fetch "https://github.com/${UP_REPO}/releases/download/${UP_REL}/SHA256SUMS" "$SUMS"
+CLI_SHA="$(awk -v a="$CLI_ASSET" '$2 == a {print $1}' "$SUMS")"
+[ -n "$CLI_SHA" ] || { echo "build: the release's SHA256SUMS carries no $CLI_ASSET" >&2; exit 1; }
+
+CLI_BIN="$OUT/tools/$CLI_ASSET"
+fetch_verified "https://github.com/${UP_REPO}/releases/download/${UP_REL}/${CLI_ASSET}" "$CLI_SHA" "$CLI_BIN"
+# The CLI's digest is the leg's source digest — stage reads it for the
+# manifest's source.src_sha256 (the repackage's source IS the binary).
+printf '%s\n' "$CLI_SHA" > "$OUT/cli.sha256"
+
+# --- stage + pack ------------------------------------------------------
+install -m 0755 "$CLI_BIN" "$ROOT/bin/tebako${EXE}"
+pack_image "$PLATFORM" "$OUT/tools" "$ROOT" "$OUT/payload.tfs"
+
+echo "build: packed $OUT/payload.tfs ($(sha256_of "$OUT/payload.tfs"))"

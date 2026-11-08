@@ -1,0 +1,111 @@
+#!/usr/bin/env bash
+# tools/stage — name a built payload, embed its manifest, repack, and
+# fill the sidecar manifest from the recipe.
+#
+#   tools/stage OUT_DIR PLATFORM [RECIPE]
+#
+# Produces in dist/:
+#   <name>-<version>-<platform>.tfs             the payload image (with
+#                                               /__tpkg__/manifest.yaml inside)
+#   <name>-<version>-<platform>.manifest.yaml   the sidecar manifest (spec 03),
+#                                               carrying the artifact's digest
+set -euo pipefail
+
+HERE="$(cd "$(dirname "$0")" && pwd)"
+. "$HERE/lib/common.sh"
+
+OUT="${1:?usage: tools/stage OUT_DIR PLATFORM [RECIPE]}"
+PLATFORM="${2:?usage: tools/stage OUT_DIR PLATFORM [RECIPE]}"
+RECIPE="${3:-Tebakofile}"
+IMAGE="$OUT/payload.tfs"
+ROOT="$OUT/root"
+[ -f "$IMAGE" ] || { echo "stage: no payload image at $IMAGE (run tools/build first)" >&2; exit 1; }
+[ -d "$ROOT" ] || { echo "stage: no staging tree at $ROOT (run tools/build first)" >&2; exit 1; }
+
+NAME="$("$HERE/recipe_query" "$RECIPE" name)"
+VERSION="$("$HERE/recipe_query" "$RECIPE" upstream.version)"
+# The repackage shape records the per-platform source digest at build
+# (the CLI binary's own sha); a build-from-source recipe's upstream
+# tarball sha256 is the recipe value. Build's record wins when present.
+if [ -f "$OUT/cli.sha256" ]; then
+  UP_SHA="$(cat "$OUT/cli.sha256")"
+else
+  UP_SHA="$("$HERE/recipe_query" "$RECIPE" upstream.sha256)"
+fi
+PLATFORMS="$("$HERE/recipe_query" "$RECIPE" platforms)"   # JSON == YAML flow
+EXE_SUFFIX="$(exe_suffix_for "$PLATFORM")"   # the windows image carries /bin/<name>.exe
+CREATED="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+FEEDSTOCK_SHA="$(git rev-parse --verify -q HEAD 2>/dev/null || true)"
+[ -n "$FEEDSTOCK_SHA" ] || FEEDSTOCK_SHA="worktree-uncommitted"
+
+fill_manifest() {  # $1 = blob_sha256 to inscribe
+  sed -e "s/@@NAME@@/$NAME/g" \
+      -e "s/@@VERSION@@/$VERSION/g" \
+      -e "s/@@CREATED@@/$CREATED/g" \
+      -e "s/@@UPSTREAM_SHA256@@/$UP_SHA/g" \
+      -e "s/@@FEEDSTOCK_SHA@@/$FEEDSTOCK_SHA/g" \
+      -e "s/@@BLOB_SHA256@@/$1/g" \
+      -e "s/@@EXE_SUFFIX@@/$EXE_SUFFIX/g" \
+      -e "s/@@PLATFORMS@@/$PLATFORMS/g" \
+      manifests/payload.yaml
+}
+
+check_filled() {  # any placeholder left behind means template drift — fail loudly
+  if grep -q '@@[A-Z_]*@@' "$1"; then
+    echo "stage: unfilled placeholders in $1:" >&2
+    grep '@@[A-Z_]*@@' "$1" >&2
+    exit 1
+  fi
+}
+
+mkdir -p dist "$ROOT/__tpkg__"
+ART="dist/${NAME}-${VERSION}-${PLATFORM}.tfs"
+MAN="dist/${NAME}-${VERSION}-${PLATFORM}.manifest.yaml"
+ZEROS="$(printf '0%.0s' $(seq 64))"
+
+# The EMBEDDED manifest (tier 1, authoritative): the in-image digest can
+# never name the image that carries it — the zeros placeholder stands;
+# the .sha256 sidecar / the registry pin stays the trust anchor.
+fill_manifest "$ZEROS" > "$ROOT/__tpkg__/manifest.yaml"
+check_filled "$ROOT/__tpkg__/manifest.yaml"
+
+# repack with the manifest inside (same imager + flags as tools/build)
+pack_image "$PLATFORM" "$OUT/tools" "$ROOT" "$IMAGE"
+
+# --- read-back: a broken payload fails THIS leg, never the publish ----
+# Re-read the repacked image with the leg's own reader (the same
+# verified tfs CLI on every platform): the embedded tier-1 manifest must
+# exist and parse as YAML, and every entrypoint it declares must exist
+# in the image — proven here, before anything can upload.
+# MSYS2_ARG_CONV_EXCL: the VFS paths (/__tpkg__/manifest.yaml, the
+# declared /bin/… entrypoints) must reach the native windows reader
+# verbatim — msys2 would otherwise rewrite them to host paths. The image
+# path itself is relative (out/<platform>/…), so it needs no conversion.
+# Inert on POSIX.
+echo "stage: read-back validation of $IMAGE"
+READER="$(image_reader "$PLATFORM" "$OUT")"
+EMBEDDED="$(MSYS2_ARG_CONV_EXCL='*' "$READER" cat "$IMAGE" /__tpkg__/manifest.yaml)" || {
+  echo "stage: read-back FAILED — no /__tpkg__/manifest.yaml in $IMAGE" >&2; exit 1; }
+ENTRY_PATHS="$(printf '%s' "$EMBEDDED" | ruby --disable-gems -ryaml -e '
+  $stdout.binmode   # ucrt64 ruby text mode would emit \r\n (breaks read -r)
+  m = YAML.load(STDIN.read)
+  es = (m.dig("provides", "executables") || []) + (m.dig("provides", "entrypoints") || [])
+  es.each { |e| puts e["path"] }')" || {
+  echo "stage: read-back FAILED — embedded manifest is not valid YAML" >&2; exit 1; }
+while IFS= read -r p; do
+  p="${p%$'\r'}"   # belt-and-braces with the binmode above
+  [ -n "$p" ] || continue
+  MSYS2_ARG_CONV_EXCL='*' "$READER" stat "$IMAGE" "$p" >/dev/null || {
+    echo "stage: read-back FAILED — declared entrypoint $p missing from $IMAGE" >&2; exit 1; }
+  echo "stage: read-back: $p present"
+done <<< "$ENTRY_PATHS"
+
+BLOB_SHA="$(sha256_of "$IMAGE")"
+fill_manifest "$BLOB_SHA" > "$MAN"
+check_filled "$MAN"
+cp "$IMAGE" "$ART"
+
+echo "stage: OK"
+echo "  artifact: $ART"
+echo "  manifest: $MAN"
+echo "  sha256:   $BLOB_SHA"

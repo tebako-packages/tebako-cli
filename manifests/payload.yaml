@@ -1,0 +1,31 @@
+schema_version: 1
+# Payload manifest template for tebako-cli (spec 03; filled from Tebakofile by tools/stage)
+identity:
+  schema_version: 1
+  kind: toolkit
+  name: "tebako-cli"
+  version: "@@VERSION@@"
+  producer: {tool: feedstock-build, tool_version: "1"}
+  created: "@@CREATED@@"
+  source: {src_sha256: "@@UPSTREAM_SHA256@@", commit: "@@FEEDSTOCK_SHA@@", builder: "gha"}
+  digest:
+    # The not-stamped convention (a valid "<algorithm>:<64 hex>" placeholder —
+    # the tpkg model rejects an empty value, and install parses tier 1
+    # strictly). Every leg is packed by `tfs mkimage`, which stamps the
+    # REAL tfs-merkle-1 root over this placeholder at image creation
+    # (spec 03 §7: the hash excludes /__tpkg__/, so the stamp is a fixed
+    # point).
+    tree_hash: "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+    blob_sha256: "@@BLOB_SHA256@@"
+  signing: {state: unsigned}
+  encryption: {state: none}
+  annotations: {}
+provides:
+  executables:
+    # stage appends the platform's exe suffix to the path (.exe on
+    # windows-ucrt — the image carries the PE name; empty elsewhere).
+    - {name: "tebako", path: "/bin/tebako@@EXE_SUFFIX@@", version: "@@VERSION@@"}
+  libraries: []
+  platforms: @@PLATFORMS@@
+  capabilities: {exec: true, read: true}
+requires: []             # the CLI is zero-runtime — the host's own binary format

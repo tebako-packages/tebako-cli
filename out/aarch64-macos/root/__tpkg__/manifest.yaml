@@ -1,0 +1,31 @@
+schema_version: 1
+# Payload manifest template for tebako-cli (spec 03; filled from Tebakofile by tools/stage)
+identity:
+  schema_version: 1
+  kind: toolkit
+  name: "tebako-cli"
+  version: "2.8.73"
+  producer: {tool: feedstock-build, tool_version: "1"}
+  created: "2026-11-08T04:44:58Z"
+  source: {src_sha256: "820ef3e1d5f3d52447b17830d4ad6ef1eb75f65b897c8fe2c9ff534dd387f455", commit: "worktree-uncommitted", builder: "gha"}
+  digest:
+    # The not-stamped convention (a valid "<algorithm>:<64 hex>" placeholder —
+    # the tpkg model rejects an empty value, and install parses tier 1
+    # strictly). Every leg is packed by `tfs mkimage`, which stamps the
+    # REAL tfs-merkle-1 root over this placeholder at image creation
+    # (spec 03 §7: the hash excludes /__tpkg__/, so the stamp is a fixed
+    # point).
+    tree_hash: "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+    blob_sha256: "0000000000000000000000000000000000000000000000000000000000000000"
+  signing: {state: unsigned}
+  encryption: {state: none}
+  annotations: {}
+provides:
+  executables:
+    # stage appends the platform's exe suffix to the path (.exe on
+    # windows-ucrt — the image carries the PE name; empty elsewhere).
+    - {name: "tebako", path: "/bin/tebako", version: "2.8.73"}
+  libraries: []
+  platforms: ["x86_64-linux-gnu","aarch64-linux-gnu","x86_64-linux-musl","aarch64-linux-musl","aarch64-macos","x86_64-macos","x86_64-windows-ucrt","aarch64-windows-ucrt"]
+  capabilities: {exec: true, read: true}
+requires: []             # the CLI is zero-runtime — the host's own binary format

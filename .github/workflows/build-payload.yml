@@ -1,0 +1,121 @@
+name: build-payload
+# Feedstock build: recipe → matrix repackage → boot-smoke → release.
+# The tebako-cli feedstock compiles nothing: each leg re-packages the
+# tamatebako/tebako release's CLI binary into a toolkit payload (the
+# self-hosting arc's self-package). Conventions: docs/conventions.md in
+# tebako-packages/index.
+on:
+  push:
+    branches: [main]
+    tags: ["*"]
+  pull_request:
+  workflow_dispatch:
+
+# One run per branch/PR-head at a time.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+jobs:
+  matrix:
+    name: emit
+    runs-on: ubuntu-24.04
+    outputs:
+      legs: ${{ steps.m.outputs.legs }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - id: m
+        run: |
+          # The matrix is EMITTED from Tebakofile (YAML stays thin;
+          # logic lives in tools/). tools/emit_matrix emits one leg per
+          # platform in the recipe.
+          echo "legs=$(ruby tools/emit_matrix Tebakofile)" >> "$GITHUB_OUTPUT"
+
+  build:
+    name: ${{ matrix.platform }}
+    needs: matrix
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.matrix.outputs.legs) }}
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Set up MSys2 (ucrt64 toolchain)
+        # The repackage needs no compiler — the msys2 leg provides the
+        # ruby the recipe/stage tools run on + the shell tools.
+        if: startsWith(matrix.platform, 'x86_64-windows')
+        uses: msys2/setup-msys2@66cd2cce69caa17b53920067426061ca1de3a884 # v2
+        with:
+          msystem: ucrt64
+          path-type: minimal
+          update: true
+          install: >-
+            git
+            tar
+            curl
+            mingw-w64-ucrt-x86_64-ruby
+      - name: Repackage (${{ matrix.platform }})
+        if: !startsWith(matrix.platform, 'x86_64-windows')
+        run: tools/build Tebakofile "${{ matrix.platform }}"
+      - name: Repackage (${{ matrix.platform }}, ucrt64)
+        if: startsWith(matrix.platform, 'x86_64-windows')
+        shell: msys2 {0}
+        run: tools/build Tebakofile "${{ matrix.platform }}"
+      - name: Boot-smoke
+        # Hard rule: the packaged CLI's --version runs from the image
+        # before any release publishes.
+        if: !startsWith(matrix.platform, 'x86_64-windows')
+        run: tools/boot_smoke "out/${{ matrix.platform }}"
+      - name: Boot-smoke (ucrt64)
+        if: startsWith(matrix.platform, 'x86_64-windows')
+        shell: msys2 {0}
+        run: tools/boot_smoke "out/${{ matrix.platform }}"
+      - name: Stage artifact
+        if: !startsWith(matrix.platform, 'x86_64-windows')
+        run: tools/stage "out/${{ matrix.platform }}" "${{ matrix.platform }}"
+      - name: Stage artifact (ucrt64)
+        if: startsWith(matrix.platform, 'x86_64-windows')
+        shell: msys2 {0}
+        run: tools/stage "out/${{ matrix.platform }}" "${{ matrix.platform }}"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: dist-${{ matrix.platform }}
+          path: dist/
+
+  release:
+    name: publish
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: build
+    permissions:
+      contents: write
+      attestations: write
+      id-token: write
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: dist-*
+          path: dist
+          merge-multiple: true
+      - name: Publish payloads + registry
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TEBAKO_SIGNING_KEY: ${{ secrets.TEBAKO_CI_SIGNING_KEY }}
+        run: tools/publish
+      - name: Attest build provenance
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: dist/*
+
+  ping-registry:
+    # The official registry's 6-hourly aggregate is the self-healing
+    # backstop; this reusable ping makes a same-day publish visible there
+    # immediately. Never fatal.
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: [release]
+    uses: tebako-packages/registry/.github/workflows/ping-aggregate.yml@main

@@ -1,0 +1,55 @@
+# Feedstock recipe for tebako-cli — the tebako CLI as a tebako payload.
+# spec 13 §9 + docs/conventions.md in tebako-packages/index.
+#
+# This feedstock compiles nothing: it re-packages the tamatebako/tebako
+# release's CLI binary into a toolkit payload (kind: toolkit, zero-runtime —
+# the binary is the host's own format, the dispatch is spec 03 §2.2's
+# zero-runtime entrypoint). The self-hosting arc's self-package: the product
+# publishes its own CLI, installable from the public registry.
+name: "tebako-cli"
+kind: toolkit
+summary: "The tebako CLI (press/install/dispatch driver) as a tebako payload — the self-hosting self-package"
+
+# The upstream is the tamatebako/tebako RELEASE (the published CLI binary per
+# platform) — the feedstock consumes the product's published artifact, never
+# the source (the release-chain law). The version rides the tebako release line.
+upstream:
+  repo: "tamatebako/tebako"
+  release: "v2.8.73"
+  version: "2.8.73"
+
+build:
+  system: repackage        # download the published binary + image it; no compile
+  link_mode: static        # the CLI binary is statically linked by construction
+  deps: []                 # no payload deps
+
+# Image tooling (every leg): the tfs CLI from the tamatebako/tebako release —
+# `tfs mkimage` is the imager. The asset digests are pinned here (the repo's
+# toolchain pin SSOT) and cross-checked against the release's own SHA256SUMS
+# at fetch time.
+tools:
+  repo: "tamatebako/tebako"
+  release: "v2.8.73"
+  sha256:
+    linux-gnu-x86_64: "8d408aa532c29fc30d3698d1283b7737584a3ea85310144fb0775981478a0a98"
+    linux-gnu-arm64: "9e7539727302b8e40c8fb27d7a2a38ba825e9d6e0e3b75d5957252de87ca24c2"
+    macos-arm64: "d27149e32cd288a1b8e7a8eaff8f140259eb6deeb1d79f70d3deb7c90bdfb1d9"
+    macos-x86_64: "a10d317775ea2044145b774e6922405ac289be8e8afea7cb4f46f9dd855efdf0"
+    windows-ucrt64: "77d86846b8ef8af674a0d8a454a3b88b0e528779b179e5d35d5f7ebfdc03bf77"
+    windows-ucrt-arm64: "9e9b9ea6b058b7c9a7e2051ea92f8a62f1b9321310f6ed54b6bd3fd2b1e6ee5c"
+
+platforms:
+  - x86_64-linux-gnu
+  - aarch64-linux-gnu
+  - x86_64-linux-musl
+  - aarch64-linux-musl
+  - aarch64-macos
+  - x86_64-macos
+  - x86_64-windows-ucrt
+  - aarch64-windows-ucrt
+
+provides:
+  executables:
+    # the windows image carries /bin/tebako.exe (stage fills the suffix)
+    - {name: "tebako", path: "/bin/tebako", version: "2.8.73"}
+  libraries: []

@@ -1,0 +1,5 @@
+schema_version: 1
+# The tebako-cli feedstock's own registry (the authored authority — the
+# tebako-packages/registry aggregate flows it, never hand-edits it).
+# The publish job appends each published version's row here.
+payloads: []
