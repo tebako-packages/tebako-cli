@@ -1,5 +1,34 @@
+---
 schema_version: 1
-# The tebako-cli feedstock's own registry (the authored authority — the
-# tebako-packages/registry aggregate flows it, never hand-edits it).
-# The publish job appends each published version's row here.
-payloads: []
+payloads:
+- name: tebako-cli
+  kind: toolkit
+  versions:
+  - version: 2.8.73
+    platforms:
+      aarch64-linux-gnu:
+        artifact: tebako-cli-2.8.73-aarch64-linux-gnu.tfs
+        sha256: 8ce76f5d3deae33ef903b6a8e8d4239f26c1b7d3f4dcdc80458fe72c70283c87
+      aarch64-linux-musl:
+        artifact: tebako-cli-2.8.73-aarch64-linux-musl.tfs
+        sha256: f7f6c4f972aa50b1ac0888fd22457b3c7eb69df4d5e210fbad171fb69950b829
+      aarch64-macos:
+        artifact: tebako-cli-2.8.73-aarch64-macos.tfs
+        sha256: 78f8fb893dea08c002d5934637e4ec72875e3cc33ef999e244cf8de9e2e58e18
+      x86_64-linux-gnu:
+        artifact: tebako-cli-2.8.73-x86_64-linux-gnu.tfs
+        sha256: 73712f8ca85ddf03f47480502af34d17de5dc0f4a8d7fd4da0f9fa4d7123b007
+      x86_64-linux-musl:
+        artifact: tebako-cli-2.8.73-x86_64-linux-musl.tfs
+        sha256: 32afa824dbda0bc49d196aeae0e1762579e11d8a78b08c1f1edf4816ca5a7ed5
+      x86_64-macos:
+        artifact: tebako-cli-2.8.73-x86_64-macos.tfs
+        sha256: 6fdc5a76d11d6f8511046076587dfe1dac90d0b37e42e3df0c605175b707c032
+      x86_64-windows-ucrt:
+        artifact: tebako-cli-2.8.73-x86_64-windows-ucrt.tfs
+        sha256: ccc37d441506a363a9d116c81a4ce071ef14ed66a69c5cef5bfbb6330868f239
+    release:
+      ref: tfs:github:tebako-packages/tebako-cli:v2.8.73
+    entrypoints:
+    - tebako
+  default: 2.8.73
