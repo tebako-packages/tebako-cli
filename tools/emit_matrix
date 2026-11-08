@@ -32,9 +32,13 @@ recipe = YAML.load_file(ARGV[0])
 version = recipe.dig('upstream', 'version') or abort "emit_matrix: upstream.version missing"
 platforms = recipe['platforms'] or abort "emit_matrix: platforms missing"
 
-legs = platforms.map do |triplet|
+    legs = platforms.map do |triplet|
   runner = RUNNERS[triplet] or abort "emit_matrix: no runner mapped for platform '#{triplet}'"
-  { version: version, platform: triplet, runner: runner }
+  leg = { version: version, platform: triplet, runner: runner }
+  # The musl legs run in the alpine container: the musl tfs CLI is not
+  # static (it links the musl loader) and cannot execute on the gnu host.
+  leg[:container] = 'alpine:3.21' if triplet.include?('-musl')
+  leg
 end
 
 puts JSON.generate(include: legs)

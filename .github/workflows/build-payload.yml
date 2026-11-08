@@ -41,6 +41,10 @@ jobs:
       fail-fast: false
       matrix: ${{ fromJSON(needs.matrix.outputs.legs) }}
     runs-on: ${{ matrix.runner }}
+    # The musl legs run in the alpine container (the musl tfs CLI is not
+    # static — it links the musl loader — and cannot execute on the gnu
+    # host). Absent on every other leg.
+    container: ${{ matrix.container }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Set up MSys2 (ucrt64 toolchain)
