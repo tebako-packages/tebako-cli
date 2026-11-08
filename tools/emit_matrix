@@ -41,8 +41,13 @@ platforms = recipe['platforms'] or abort "emit_matrix: platforms missing"
   # A cross leg's packaged binary cannot execute on the host (the
   # aarch64-musl CLI on an x64 host) — the boot smoke's extract-and-run
   # is skipped there; the stage tool's read-back validation is the leg's
-  # proof (the manifest + the entrypoint present).
-  leg[:cross] = true if triplet == 'aarch64-linux-musl'
+  # proof (the manifest + the entrypoint present). The imager there runs
+  # on the HOST's platform (the x64 alpine container), never the
+  # payload's.
+  if triplet == 'aarch64-linux-musl'
+    leg[:cross] = true
+    leg[:imager] = 'x86_64-linux-musl'
+  end
   leg
 end
 

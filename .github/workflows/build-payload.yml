@@ -68,11 +68,11 @@ jobs:
             mingw-w64-ucrt-x86_64-ruby
       - name: Repackage (${{ matrix.platform }})
         if: "!startsWith(matrix.platform, 'x86_64-windows')"
-        run: tools/build Tebakofile "${{ matrix.platform }}"
+        run: tools/build Tebakofile "${{ matrix.platform }}" "${{ matrix.imager }}"
       - name: Repackage (${{ matrix.platform }}, ucrt64)
         if: startsWith(matrix.platform, 'x86_64-windows')
         shell: msys2 {0}
-        run: tools/build Tebakofile "${{ matrix.platform }}"
+        run: tools/build Tebakofile "${{ matrix.platform }}" "${{ matrix.imager }}"
       - name: Boot-smoke
         # Hard rule: the packaged CLI's --version runs from the image
         # before any release publishes. Skipped on a cross leg (the

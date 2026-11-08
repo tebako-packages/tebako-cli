@@ -45,8 +45,12 @@ rm -rf "$ROOT"
 mkdir -p "$ROOT/bin"
 
 # --- the leg's verified tfs CLI (the imager) --------------------------
-TFS_PIN="$("$HERE/recipe_query" "$RECIPE" tools.sha256."$(asset_infix "$PLATFORM")")"
-download_tfs "$OUT/tools" "tamatebako/tebako" "$UP_REL" "$PLATFORM" "$TFS_PIN"
+# The imager runs on the HOST — the third arg when the leg is cross (the
+# workflow passes the matrix's imager platform), else the leg's own. The
+# recipe pin it reads is the imager's.
+IMAGER_PLAT="${2:-$PLATFORM}"
+TFS_PIN="$("$HERE/recipe_query" "$RECIPE" tools.sha256."$(asset_infix "$IMAGER_PLAT")")"
+download_tfs "$OUT/tools" "tamatebako/tebako" "$UP_REL" "$IMAGER_PLAT" "$TFS_PIN"
 
 # --- fetch + verify the CLI binary against the release's own SHA256SUMS --
 EXE="$(exe_suffix_for "$PLATFORM")"
