@@ -8,25 +8,25 @@ payloads:
     platforms:
       aarch64-linux-gnu:
         artifact: tebako-cli-2.8.73-aarch64-linux-gnu.tfs
-        sha256: 8ce76f5d3deae33ef903b6a8e8d4239f26c1b7d3f4dcdc80458fe72c70283c87
+        sha256: 6fee50dd7215836a36b90d917cf4d2b2c5cc833f64fb3fa0e9b2b4f070b5a03f
       aarch64-linux-musl:
         artifact: tebako-cli-2.8.73-aarch64-linux-musl.tfs
-        sha256: f7f6c4f972aa50b1ac0888fd22457b3c7eb69df4d5e210fbad171fb69950b829
+        sha256: 96a81c7ae251221a4c207ac5ed401066cc30367bca8cd42e8275c8aa6689bb7d
       aarch64-macos:
         artifact: tebako-cli-2.8.73-aarch64-macos.tfs
-        sha256: 78f8fb893dea08c002d5934637e4ec72875e3cc33ef999e244cf8de9e2e58e18
+        sha256: c85ecd0be76b2a875ac71f31a9353fcd7ee78ca8da5eda77f6947e5c07c60428
       x86_64-linux-gnu:
         artifact: tebako-cli-2.8.73-x86_64-linux-gnu.tfs
-        sha256: 73712f8ca85ddf03f47480502af34d17de5dc0f4a8d7fd4da0f9fa4d7123b007
+        sha256: 34d58658c715d6a7c36a6d04525eac93bb16c1f0df4f694b638288bfe17c538b
       x86_64-linux-musl:
         artifact: tebako-cli-2.8.73-x86_64-linux-musl.tfs
-        sha256: 32afa824dbda0bc49d196aeae0e1762579e11d8a78b08c1f1edf4816ca5a7ed5
+        sha256: cfc068183c2aaaf0be78f54741adcf1ab89e64067e4e0d0588fae664deb5e0d7
       x86_64-macos:
         artifact: tebako-cli-2.8.73-x86_64-macos.tfs
-        sha256: 6fdc5a76d11d6f8511046076587dfe1dac90d0b37e42e3df0c605175b707c032
+        sha256: 88aa7488ecf6d9b129e446156fdae214805284e819479cc042490ce4f35e61f4
       x86_64-windows-ucrt:
         artifact: tebako-cli-2.8.73-x86_64-windows-ucrt.tfs
-        sha256: ccc37d441506a363a9d116c81a4ce071ef14ed66a69c5cef5bfbb6330868f239
+        sha256: 34149f100e67c2ab5ebf9cc7265e4f1c5f51b6a8fcef0fd50cc6bdd984ae81c9
     release:
       ref: tfs:github:tebako-packages/tebako-cli:v2.8.73
     entrypoints:
