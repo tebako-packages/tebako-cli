@@ -29,16 +29,16 @@ build:
 # at fetch time.
 tools:
   repo: "tamatebako/tebako"
-  release: "v2.8.76"
+  release: "v2.8.82"
   sha256:
-    linux-gnu-x86_64: "6712f110f332236c49acfa0c21899860f5c1c8b8859fa7b8e4158e45a96479fb"
-    linux-gnu-arm64: "b56d417f12d82f346b8000307b46dc33a2ccc7036baf1d57b37d01b5905d2a25"
-    linux-musl-x86_64: "93a5a329e6e236f33ca4aa7bad6dba3920c21e4bd3ec06ee94ca25218cc45cc0"
-    linux-musl-arm64: "3309aec4389ed97ee0025b3f625471cb00697660ed70f5646fe6b14e88e1a574"
-    macos-arm64: "ed0fbc63ae3b352be06bc92088b827c15ac701be23dad29b0d63588d0babc5a2"
-    macos-x86_64: "fadcd0aa96e04123245cbab672ca876440292f194030a1c8254b3b77de518a4f"
-    windows-ucrt64: "0f522a26e4df880ef4171ebbf42b70eff64b35f3d95fb33ca1d574b0654bdf3f"
-    windows-ucrt-arm64: "bd98b5c5d9ef3a7b3e22f0bfd30b71d35d1bf5338eb53af4b5ec61cfce9e1222"
+    linux-gnu-x86_64: "7a48edad41180a15b5e020b92eca3e3b12e0f1b43ac4988fa28a984ab4888c19"
+    linux-gnu-arm64: "385a97557d1a45ee4339fed398e531ece8aaa166d561338b35cd930b3ee88f24"
+    linux-musl-x86_64: "2fec7a56699c954a7218ffc212a4df16a767d436b953cdbfd59ea598c10a17b9"
+    linux-musl-arm64: "1d983949176e9ad8848c24f94293056ab9e3af2b4c6cdb61ce442a0757a484dc"
+    macos-arm64: "d5862163caf2e79b45a844eb97381849de741562e7551b9b71d583237f791dfc"
+    macos-x86_64: "61b7dca5e507cc7ca58bf81d00f121b9ce06eaf87577ead1e04b4c586481b949"
+    windows-ucrt64: "0804fa9872f127fd3046d2bf0ef7f6a166f25120cec9474941a4e832d07f5623"
+    windows-ucrt-arm64: "b8dceb19186f41817a2d31d1c72a573340f25b277e1fc6bc100db5521e52f2a8"
 
 platforms:
   - x86_64-linux-gnu
